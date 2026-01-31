@@ -74,7 +74,6 @@
             textSpan.style.textDecoration = "line-through";
           }
           li.appendChild(textSpan);
-          // Button to mark task as complete if not already completed
           if (!task.completed) {
             const completeButton = document.createElement("button");
             completeButton.textContent = "Completar";
@@ -88,7 +87,6 @@
             };
             li.appendChild(completeButton);
           }
-          // Button to delete task
           const deleteButton = document.createElement("button");
           deleteButton.textContent = "Eliminar";
           deleteButton.onclick = async () => {
@@ -120,7 +118,6 @@
           fetchTasks();
         });
 
-      // Initial load
       fetchTasks();
     </script>
   </body>
