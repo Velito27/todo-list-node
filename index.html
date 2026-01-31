@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <title>Lista de Tareas</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        max-width: 600px;
+        margin: 2rem auto;
+        padding: 0 1rem;
+      }
+      h1 {
+        text-align: center;
+      }
+      form {
+        display: flex;
+        gap: 0.5rem;
+        margin-bottom: 1rem;
+      }
+      input[type="text"] {
+        flex: 1;
+        padding: 0.5rem;
+        font-size: 1rem;
+      }
+      button {
+        padding: 0.5rem 1rem;
+        font-size: 1rem;
+        cursor: pointer;
+      }
+      ul {
+        list-style: none;
+        padding: 0;
+      }
+      li {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0.5rem;
+        border-bottom: 1px solid #ddd;
+      }
+      li span {
+        flex: 1;
+      }
+      li button {
+        margin-left: 0.5rem;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Lista de Tareas</h1>
+    <form id="task-form">
+      <input
+        type="text"
+        id="new-task"
+        placeholder="Nueva tarea"
+        aria-label="Nueva tarea"
+        required
+      />
+      <button type="submit">Agregar</button>
+    </form>
+    <ul id="tasks"></ul>
+    <script>
+      async function fetchTasks() {
+        const response = await fetch("/tasks");
+        const tasks = await response.json();
+        const list = document.getElementById("tasks");
+        list.innerHTML = "";
+        tasks.forEach((task) => {
+          const li = document.createElement("li");
+          const textSpan = document.createElement("span");
+          textSpan.textContent = task.title;
+          if (task.completed) {
+            textSpan.style.textDecoration = "line-through";
+          }
+          li.appendChild(textSpan);
+          // Button to mark task as complete if not already completed
+          if (!task.completed) {
+            const completeButton = document.createElement("button");
+            completeButton.textContent = "Completar";
+            completeButton.onclick = async () => {
+              await fetch(`/tasks/${task.id}`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ completed: true }),
+              });
+              fetchTasks();
+            };
+            li.appendChild(completeButton);
+          }
+          // Button to delete task
+          const deleteButton = document.createElement("button");
+          deleteButton.textContent = "Eliminar";
+          deleteButton.onclick = async () => {
+            await fetch(`/tasks/${task.id}`, {
+              method: "DELETE",
+            });
+            fetchTasks();
+          };
+          li.appendChild(deleteButton);
+          list.appendChild(li);
+        });
+      }
+
+      document
+        .getElementById("task-form")
+        .addEventListener("submit", async (event) => {
+          event.preventDefault();
+          const input = document.getElementById("new-task");
+          const title = input.value.trim();
+          if (!title) {
+            return;
+          }
+          await fetch("/tasks", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ title }),
+          });
+          input.value = "";
+          fetchTasks();
+        });
+
+      // Initial load
+      fetchTasks();
+    </script>
+  </body>
+</html>
