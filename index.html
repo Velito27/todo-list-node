@@ -2,121 +2,336 @@
 <html lang="es">
   <head>
     <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Lista de Tareas</title>
+
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"
+      rel="stylesheet"
+    />
+
     <style>
       body {
-        font-family: Arial, sans-serif;
-        max-width: 600px;
-        margin: 2rem auto;
-        padding: 0 1rem;
+        background: radial-gradient(1200px 600px at 20% 0%, rgba(13,110,253,.25), transparent 60%),
+                    radial-gradient(900px 500px at 90% 10%, rgba(25,135,84,.20), transparent 55%),
+                    #0b1220;
+        min-height: 100vh;
       }
-      h1 {
-        text-align: center;
+      .app-shell { max-width: 840px; }
+      .glass {
+        background: rgba(255, 255, 255, 0.06);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        backdrop-filter: blur(10px);
       }
-      form {
-        display: flex;
-        gap: 0.5rem;
-        margin-bottom: 1rem;
+      .muted { color: rgba(255,255,255,.65); }
+      .task-row:hover { transform: translateY(-1px); background: rgba(255,255,255,.03); }
+      .completed { text-decoration: line-through; opacity: .65; }
+      .btn-icon { display: inline-flex; align-items: center; gap: .4rem; }
+      .badge-soft {
+        background: rgba(255,255,255,.10);
+        border: 1px solid rgba(255,255,255,.12);
       }
-      input[type="text"] {
-        flex: 1;
-        padding: 0.5rem;
-        font-size: 1rem;
+      .form-control, .form-select {
+        background: rgba(255,255,255,.08);
+        border-color: rgba(255,255,255,.14);
+        color: #fff;
       }
-      button {
-        padding: 0.5rem 1rem;
-        font-size: 1rem;
-        cursor: pointer;
+      .form-control::placeholder { color: rgba(255,255,255,.55); }
+      .form-control:focus, .form-select:focus {
+        background: rgba(255,255,255,.10);
+        color: #fff;
+        border-color: rgba(13,110,253,.6);
+        box-shadow: 0 0 0 .25rem rgba(13,110,253,.15);
       }
-      ul {
-        list-style: none;
-        padding: 0;
-      }
-      li {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: 0.5rem;
-        border-bottom: 1px solid #ddd;
-      }
-      li span {
-        flex: 1;
-      }
-      li button {
-        margin-left: 0.5rem;
-      }
+      .list-group-item { border-color: rgba(255,255,255,.10) !important; }
     </style>
   </head>
+
   <body>
-    <h1>Lista de Tareas</h1>
-    <form id="task-form">
-      <input
-        type="text"
-        id="new-task"
-        placeholder="Nueva tarea"
-        aria-label="Nueva tarea"
-        required
-      />
-      <button type="submit">Agregar</button>
-    </form>
-    <ul id="tasks"></ul>
+    <main class="container py-5 app-shell">
+      <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3 mb-4">
+        <div>
+          <h1 class="text-white fw-semibold mb-1">
+            <i class="bi bi-check2-square text-primary me-2"></i>Lista de Tareas
+          </h1>
+        </div>
+
+        <div class="d-flex gap-2 align-items-center">
+          <span id="statsBadge" class="badge rounded-pill badge-soft text-white px-3 py-2">
+            0 pendientes
+          </span>
+          <button id="refreshBtn" class="btn btn-outline-light btn-sm btn-icon" type="button">
+            <i class="bi bi-arrow-clockwise"></i>Recargar
+          </button>
+        </div>
+      </div>
+
+      <div id="alertBox" class="alert alert-danger d-none" role="alert">
+        <i class="bi bi-exclamation-triangle me-2"></i><span id="alertText">Error</span>
+      </div>
+
+      <div class="card glass text-white shadow-lg rounded-4 overflow-hidden">
+        <div class="card-body p-4">
+          <form id="task-form" class="row g-2 align-items-end">
+            <div class="col-12 col-md-7">
+              <label for="new-task" class="form-label mb-1">Nueva tarea</label>
+              <input
+                type="text"
+                class="form-control form-control-lg"
+                id="new-task"
+                placeholder="Ej: comer helado"
+                required
+              />
+            </div>
+
+            <div class="col-12 col-md-3">
+              <label for="filter" class="form-label mb-1">Filtro</label>
+              <select id="filter" class="form-select form-select-lg">
+                <option value="all" selected>Todas</option>
+                <option value="pending">Pendientes</option>
+                <option value="done">Completadas</option>
+              </select>
+            </div>
+
+            <div class="col-12 col-md-2 d-grid">
+              <button type="submit" class="btn btn-primary btn-lg fw-semibold btn-icon">
+                <i class="bi bi-plus-lg"></i>Agregar
+              </button>
+            </div>
+          </form>
+
+          <div class="d-flex align-items-center gap-2 mt-3 d-none" id="loading">
+            <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+            <span class="muted">Cargando…</span>
+          </div>
+
+          <div class="mt-3">
+            <ul id="tasks" class="list-group list-group-flush"></ul>
+
+            <div id="emptyState" class="text-center py-4 d-none">
+              <i class="bi bi-inbox text-primary" style="font-size: 2rem"></i>
+              <div class="mt-2 fw-semibold">No hay tareas</div>
+              <div class="muted">Agrega una arriba y empieza.</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card-footer glass border-0 px-4 py-3">
+          <div class="d-flex flex-column flex-md-row justify-content-between gap-2">
+            <small class="muted">Tip: doble clic para editar</small>
+          </div>
+        </div>
+      </div>
+    </main>
+
     <script>
-      async function fetchTasks() {
-        const response = await fetch("/tasks");
-        const tasks = await response.json();
-        const list = document.getElementById("tasks");
-        list.innerHTML = "";
-        tasks.forEach((task) => {
-          const li = document.createElement("li");
-          const textSpan = document.createElement("span");
-          textSpan.textContent = task.title;
-          if (task.completed) {
-            textSpan.style.textDecoration = "line-through";
-          }
-          li.appendChild(textSpan);
-          if (!task.completed) {
-            const completeButton = document.createElement("button");
-            completeButton.textContent = "Completar";
-            completeButton.onclick = async () => {
-              await fetch(`/tasks/${task.id}`, {
-                method: "PUT",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ completed: true }),
-              });
-              fetchTasks();
-            };
-            li.appendChild(completeButton);
-          }
-          const deleteButton = document.createElement("button");
-          deleteButton.textContent = "Eliminar";
-          deleteButton.onclick = async () => {
-            await fetch(`/tasks/${task.id}`, {
-              method: "DELETE",
-            });
-            fetchTasks();
-          };
-          li.appendChild(deleteButton);
-          list.appendChild(li);
-        });
+      const list = document.getElementById("tasks");
+      const filterEl = document.getElementById("filter");
+      const statsBadge = document.getElementById("statsBadge");
+      const loading = document.getElementById("loading");
+      const emptyState = document.getElementById("emptyState");
+      const alertBox = document.getElementById("alertBox");
+      const alertText = document.getElementById("alertText");
+      const refreshBtn = document.getElementById("refreshBtn");
+
+      let allTasks = [];
+
+      function setLoading(v) {
+        loading.classList.toggle("d-none", !v);
       }
 
-      document
-        .getElementById("task-form")
-        .addEventListener("submit", async (event) => {
-          event.preventDefault();
-          const input = document.getElementById("new-task");
-          const title = input.value.trim();
-          if (!title) {
-            return;
+      function showError(msg) {
+        alertText.textContent = msg;
+        alertBox.classList.remove("d-none");
+      }
+
+      function hideError() {
+        alertBox.classList.add("d-none");
+      }
+
+      function updateStats(tasks) {
+        const pending = tasks.filter(t => !t.completed).length;
+        const done = tasks.filter(t => t.completed).length;
+
+        if (pending === 0 && done === 0) {
+          statsBadge.textContent = "Sin tareas";
+          statsBadge.className = "badge rounded-pill badge-soft text-white px-3 py-2";
+          return;
+        }
+
+        statsBadge.textContent = pending === 1 ? "1 pendiente" : `${pending} pendientes`;
+        statsBadge.className =
+          "badge rounded-pill px-3 py-2 " +
+          (pending === 0 ? "text-bg-success" : pending <= 3 ? "text-bg-warning" : "text-bg-primary");
+      }
+
+      function applyFilter(tasks) {
+        const f = filterEl.value;
+        if (f === "pending") return tasks.filter(t => !t.completed);
+        if (f === "done") return tasks.filter(t => t.completed);
+        return tasks;
+      }
+
+      function esc(s) {
+        return String(s).replace(/[&<>"']/g, (c) => ({
+          "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;"
+        }[c]));
+      }
+
+      function render() {
+        const tasks = applyFilter(allTasks);
+        list.innerHTML = "";
+
+        emptyState.classList.toggle("d-none", tasks.length !== 0);
+
+        tasks.forEach(task => {
+          const li = document.createElement("li");
+          li.className = "list-group-item bg-transparent text-white d-flex align-items-center justify-content-between py-3 task-row";
+
+          const left = document.createElement("div");
+          left.className = "d-flex align-items-center gap-3 flex-grow-1";
+
+          const badge = document.createElement("span");
+          badge.className = "badge rounded-pill " + (task.completed ? "text-bg-success" : "text-bg-secondary");
+          badge.innerHTML = task.completed
+            ? '<i class="bi bi-check2"></i> Hecho'
+            : '<i class="bi bi-hourglass-split"></i> Pendiente';
+
+          const title = document.createElement("div");
+          title.className = "fw-semibold";
+          title.innerHTML = `<span class="${task.completed ? "completed" : ""}" data-id="${task.id}" title="Doble clic para editar">${esc(task.title)}</span>`;
+
+          title.querySelector("span").ondblclick = () => startEdit(task);
+
+          left.appendChild(badge);
+          left.appendChild(title);
+
+          const actions = document.createElement("div");
+          actions.className = "d-flex gap-2";
+
+          if (!task.completed) {
+            const completeBtn = document.createElement("button");
+            completeBtn.className = "btn btn-sm btn-outline-primary btn-icon";
+            completeBtn.innerHTML = '<i class="bi bi-check2-circle"></i>Completar';
+            completeBtn.onclick = async () => {
+              await safe(async () => {
+                await fetch(`/tasks/${task.id}`, {
+                  method: "PUT",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ completed: true }),
+                });
+              });
+              await fetchTasks();
+            };
+            actions.appendChild(completeBtn);
+          } else {
+            const undoBtn = document.createElement("button");
+            undoBtn.className = "btn btn-sm btn-outline-light btn-icon";
+            undoBtn.innerHTML = '<i class="bi bi-arrow-counterclockwise"></i>Reabrir';
+            undoBtn.onclick = async () => {
+              await safe(async () => {
+                await fetch(`/tasks/${task.id}`, {
+                  method: "PUT",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ completed: false }),
+                });
+              });
+              await fetchTasks();
+            };
+            actions.appendChild(undoBtn);
           }
+
+          const delBtn = document.createElement("button");
+          delBtn.className = "btn btn-sm btn-outline-danger btn-icon";
+          delBtn.innerHTML = '<i class="bi bi-trash3"></i>Eliminar';
+          delBtn.onclick = async () => {
+            const ok = confirm("¿Eliminar esta tarea?");
+            if (!ok) return;
+
+            await safe(async () => {
+              await fetch(`/tasks/${task.id}`, { method: "DELETE" });
+            });
+            await fetchTasks();
+          };
+          actions.appendChild(delBtn);
+
+          li.appendChild(left);
+          li.appendChild(actions);
+          list.appendChild(li);
+        });
+
+        updateStats(allTasks);
+      }
+
+      function startEdit(task) {
+        const newTitle = prompt("Editar tarea:", task.title);
+        if (newTitle === null) return;
+
+        const title = newTitle.trim();
+        if (!title) {
+          showError("El título no puede estar vacío.");
+          return;
+        }
+
+        safe(async () => {
+          await fetch(`/tasks/${task.id}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ title }),
+          });
+        }).then(fetchTasks);
+      }
+
+      async function safe(fn) {
+        hideError();
+        try {
+          await fn();
+        } catch (e) {
+          console.error(e);
+          showError("Falló la operación. Revisa que tu server esté corriendo y las rutas existan.");
+        }
+      }
+
+      async function fetchTasks() {
+        setLoading(true);
+        hideError();
+        try {
+          const r = await fetch("/tasks");
+          if (!r.ok) throw new Error("GET /tasks failed");
+          allTasks = await r.json();
+          render();
+        } catch (e) {
+          console.error(e);
+          showError("No pude cargar tareas. ¿Tu servidor está en http://localhost:3000 ?");
+        } finally {
+          setLoading(false);
+        }
+      }
+
+      document.getElementById("task-form").addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const input = document.getElementById("new-task");
+        const title = input.value.trim();
+        if (!title) return;
+
+        await safe(async () => {
           await fetch("/tasks", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ title }),
           });
-          input.value = "";
-          fetchTasks();
         });
+
+        input.value = "";
+        await fetchTasks();
+      });
+
+      filterEl.addEventListener("change", render);
+      refreshBtn.addEventListener("click", fetchTasks);
 
       fetchTasks();
     </script>
